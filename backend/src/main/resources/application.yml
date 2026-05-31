@@ -1,0 +1,47 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ecommerce_db
+    username: postgres
+    password: LORENZO2004
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: lorenzorafanomezantsoa@gmail.com
+    password: remozlzoqosouixk
+    protocol: smtp
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            trust: smtp.gmail.com
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+  web:
+    resources:
+      static-locations: file:uploads/,classpath:/static/
+
+server:
+  port: 8080
+  address: 0.0.0.0
+
+app:
+  frontend:
+    url: http://192.168.43.101:5173

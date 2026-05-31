@@ -1,0 +1,797 @@
+import { Link, useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useCartStore } from '../store/cartStore';
+import { useSearchStore } from '../store/searchStore';
+import {
+    Home, ShoppingCart, User, LogOut, Heart, Search,
+    BarChart2, X, Crown, Mail, Menu, Users, Info,
+    Calendar
+} from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import api from '../api/axiosConfig';
+
+export default function Navbar() {
+    const items = useCartStore(state => state.items);
+    const totalItems = items.reduce((sum, i) => sum + i.qty, 0);
+    const clearCartOnly = useCartStore(state => state.clearCartOnly);
+    const user = JSON.parse(localStorage.getItem('user'));
+    const { search, setSearch } = useSearchStore();
+    const navigate = useNavigate();
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [searchOpen, setSearchOpen] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [allProducts, setAllProducts] = useState([]);
+    const searchRef = useRef(null);
+    const debounceTimer = useRef(null);
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+    useEffect(() => {
+        const fetchProducts = async () => {
+            try {
+                const res = await api.get('/products');
+                if (Array.isArray(res.data)) setAllProducts(res.data);
+            } catch {}
+        };
+        fetchProducts();
+    }, []);
+
+    useEffect(() => {
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        if (!search.trim()) { setSuggestions([]); setShowSuggestions(false); return; }
+        debounceTimer.current = setTimeout(() => {
+            const filtered = allProducts.filter(p => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 5);
+            setSuggestions(filtered);
+            setShowSuggestions(filtered.length > 0);
+        }, 200);
+        return () => clearTimeout(debounceTimer.current);
+    }, [search, allProducts]);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (searchRef.current && !searchRef.current.contains(e.target)) {
+                setShowSuggestions(false);
+                setSearchOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const handleSuggestionClick = (productName) => {
+        setSearch(productName);
+        setShowSuggestions(false);
+        setSearchOpen(false);
+        navigate('/');
+    };
+
+    const handleLogout = () => {
+        clearCartOnly();
+        localStorage.removeItem('user');
+        localStorage.removeItem('token');
+        navigate('/login');
+    };
+
+    const menuLinks = [
+        { to: '/dashboard', icon: <BarChart2 size={14} />, label: 'DASHBOARD' },
+    ];
+
+    if (user?.role === 'ADMIN') {
+        menuLinks.unshift(
+            { to: '/admin', icon: <Crown size={14} />, label: 'ADMIN PANEL' },
+            { to: '/admin/delivery-calendar', icon: <Calendar size={14} />, label: 'DELIVERY CALENDAR' }
+        );
+    }
+
+    const navLinks = [
+        { to: '/',         label: 'HOME'    },
+        { to: '/contact',  label: 'CONTACT' },
+        { to: '/wishlist', label: 'WISHLIST'},
+        { to: '/about',    label: 'ABOUT'   },
+    ];
+
+    const navItemVariants = {
+        hidden: { y: -20, opacity: 0, filter: 'blur(5px)' },
+        visible: (i) => ({
+            y: 0,
+            opacity: 1,
+            filter: 'blur(0px)',
+            transition: { delay: i * 0.06, duration: 0.5, ease: [0.16, 1, 0.3, 1] }
+        })
+    };
+
+    const buttonHover = { scale: 1.05, transition: { duration: 0.2, type: "spring", stiffness: 300, damping: 15 } };
+    const buttonTap = { scale: 0.95 };
+
+    const staggerChildren = {
+        hidden: { opacity: 0 },
+        visible: {
+            opacity: 1,
+            transition: { staggerChildren: 0.08, delayChildren: 0.1 }
+        }
+    };
+
+    const fadeSlideUp = {
+        hidden: { opacity: 0, y: 15 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.16, 1, 0.3, 1] } }
+    };
+
+    const menuAnimation = {
+        hidden: { opacity: 0, scale: 0.92, y: -15, filter: 'blur(4px)' },
+        visible: {
+            opacity: 1,
+            scale: 1,
+            y: 0,
+            filter: 'blur(0px)',
+            transition: { type: "spring", stiffness: 350, damping: 25, mass: 0.8 }
+        },
+        exit: {
+            opacity: 0,
+            scale: 0.92,
+            y: -15,
+            filter: 'blur(4px)',
+            transition: { duration: 0.2, ease: [0.16, 1, 0.3, 1] }
+        }
+    };
+
+    const mobileDrawerVariants = {
+        hidden: { x: '100%', opacity: 0.7, rotateY: -15 },
+        visible: {
+            x: 0,
+            opacity: 1,
+            rotateY: 0,
+            transition: { type: "spring", damping: 25, stiffness: 200, mass: 0.8 }
+        },
+        exit: {
+            x: '100%',
+            opacity: 0.7,
+            rotateY: -15,
+            transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] }
+        }
+    };
+
+    const searchExpandVariants = {
+        collapsed: { width: 32, opacity: 0.7 },
+        expanded: { width: 220, opacity: 1, transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] } }
+    };
+
+    const suggestionVariants = {
+        hidden: { opacity: 0, y: -8, scaleY: 0.9 },
+        visible: {
+            opacity: 1,
+            y: 0,
+            scaleY: 1,
+            transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] }
+        },
+        exit: {
+            opacity: 0,
+            y: -8,
+            scaleY: 0.9,
+            transition: { duration: 0.2 }
+        }
+    };
+
+    const suggestionItemVariants = {
+        hidden: { opacity: 0, x: -12 },
+        visible: (i) => ({
+            opacity: 1,
+            x: 0,
+            transition: { delay: i * 0.035, duration: 0.2, ease: "easeOut" }
+        }),
+        hover: {
+            x: 5,
+            backgroundColor: 'rgba(255,255,255,0.05)',
+            transition: { duration: 0.15, type: "spring", stiffness: 400 }
+        }
+    };
+
+    const cartSpring = {
+        initial: { scale: 0, rotate: -180 },
+        animate: { scale: 1, rotate: 0, transition: { type: "spring", stiffness: 500, damping: 25 } },
+        exit: { scale: 0, rotate: 180, transition: { duration: 0.15 } }
+    };
+
+    const backdropVariants = {
+        hidden: { opacity: 0 },
+        visible: { opacity: 1, transition: { duration: 0.2 } },
+        exit: { opacity: 0, transition: { duration: 0.15 } }
+    };
+
+    const menuItemVariants = {
+        hidden: { opacity: 0, x: -15 },
+        visible: (i) => ({
+            opacity: 1,
+            x: 0,
+            transition: { delay: 0.05 + i * 0.03, duration: 0.3, ease: [0.16, 1, 0.3, 1] }
+        }),
+        hover: { x: 6, transition: { duration: 0.15, type: "spring", stiffness: 400 } }
+    };
+
+    return (
+        <>
+            <style>{`
+                @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+                .nb { font-family: 'Orbitron', monospace; background: #000000; border-bottom: 1px solid rgba(255,255,255,0.08); }
+                .nb-link { position:relative; font-size:12px; font-weight:600; color: rgba(255,255,255,0.5); transition:color .2s; letter-spacing:0.15em; text-transform:uppercase; }
+                .nb-link::after { content:''; position:absolute; bottom:-4px; left:0; width:0; height:1.5px; background:#ffffff; transition:width .35s cubic-bezier(0.16,1,0.3,1); }
+                .nb-link:hover { color: #ffffff; }
+                .nb-link:hover::after { width:100%; }
+                .nb-link.active::after { width:100%; }
+                .nb-link.active { color: #ffffff; font-weight:700; }
+                .logo-text { font-family: 'Orbitron', monospace; font-weight: 900; letter-spacing: 0.2em; text-transform: uppercase; }
+                .search-input { transition: all 0.3s cubic-bezier(0.16,1,0.3,1); }
+                .suggestion-item { transition: all 0.2s ease; }
+            `}</style>
+
+            <motion.nav
+                initial={{ y: -100, opacity: 0, filter: 'blur(8px)' }}
+                animate={{ y: 0, opacity: 1, filter: 'blur(0px)' }}
+                transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                className="nb sticky top-0 z-50 shadow-xl"
+            >
+                <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
+                    <div className="flex items-center justify-between h-16">
+
+                        {/* LOGO */}
+                        <motion.div
+                            initial={{ opacity: 0, x: -30 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.6, delay: 0.1, type: "spring", stiffness: 200, damping: 20 }}
+                        >
+                            <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
+                                <motion.div
+                                    whileHover={{ rotate: 5, scale: 1.08 }}
+                                    transition={{ duration: 0.2, type: "spring", stiffness: 400 }}
+                                    className="w-8 h-8 bg-white rounded-lg flex items-center justify-center"
+                                >
+                                    <span className="text-black font-black text-sm">E</span>
+                                </motion.div>
+                                <motion.span
+                                    whileHover={{ letterSpacing: '0.25em' }}
+                                    transition={{ duration: 0.3 }}
+                                    className="logo-text text-white text-xs tracking-[0.2em] hidden sm:block"
+                                >E-TECH ZONE</motion.span>
+                            </Link>
+                        </motion.div>
+
+                        {/* NAV LINKS — Desktop */}
+                        <motion.div
+                            className="hidden md:flex items-center gap-8"
+                            variants={staggerChildren}
+                            initial="hidden"
+                            animate="visible"
+                        >
+                            {navLinks.map((link, i) => (
+                                <motion.div
+                                    key={i}
+                                    custom={i}
+                                    variants={navItemVariants}
+                                >
+                                    <Link to={link.to} className="nb-link">{link.label}</Link>
+                                </motion.div>
+                            ))}
+                        </motion.div>
+
+                        {/* RIGHT ICONS */}
+                        <motion.div
+                            initial={{ opacity: 0, x: 30 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.6, delay: 0.1, type: "spring", stiffness: 200, damping: 20 }}
+                            className="flex items-center gap-2 sm:gap-3"
+                        >
+
+                            {/* SEARCH */}
+                            <div className="relative hidden md:block" ref={searchRef}>
+                                <AnimatePresence mode="wait">
+                                    {searchOpen ? (
+                                        <motion.div
+                                            key="open"
+                                            variants={searchExpandVariants}
+                                            initial="collapsed"
+                                            animate="expanded"
+                                            exit="collapsed"
+                                            className="flex items-center border border-white/20 rounded-lg px-3 py-2 bg-white/5"
+                                        >
+                                            <Search size={14} className="text-white/40 shrink-0 mr-2" />
+                                            <input
+                                                autoFocus
+                                                type="text"
+                                                placeholder="SEARCH..."
+                                                value={search}
+                                                onChange={e => { setSearch(e.target.value); navigate('/'); }}
+                                                onFocus={() => setShowSuggestions(suggestions.length > 0)}
+                                                className="bg-transparent outline-none text-white/80 text-xs w-full placeholder-white/30 font-bold uppercase tracking-wider search-input"
+                                            />
+                                            {search && (
+                                                <motion.button
+                                                    whileTap={{ scale: 0.85, rotate: 90 }}
+                                                    onClick={() => setSearch('')}
+                                                    className="text-white/30 hover:text-white/60 ml-1"
+                                                >
+                                                    <X size={12} />
+                                                </motion.button>
+                                            )}
+                                        </motion.div>
+                                    ) : (
+                                        <motion.button
+                                            key="closed"
+                                            whileHover={buttonHover}
+                                            whileTap={buttonTap}
+                                            onClick={() => setSearchOpen(true)}
+                                            className="w-9 h-9 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition"
+                                        >
+                                            <Search size={16} />
+                                        </motion.button>
+                                    )}
+                                </AnimatePresence>
+
+                                {/* Suggestions */}
+                                <AnimatePresence>
+                                    {showSuggestions && (
+                                        <motion.div
+                                            variants={suggestionVariants}
+                                            initial="hidden"
+                                            animate="visible"
+                                            exit="exit"
+                                            style={{ originY: 0 }}
+                                            className="absolute top-full right-0 mt-2 w-72 bg-black border border-white/10 rounded-xl shadow-2xl z-50 overflow-hidden"
+                                        >
+                                            {suggestions.map((product, i) => (
+                                                <motion.button
+                                                    key={product.id}
+                                                    custom={i}
+                                                    variants={suggestionItemVariants}
+                                                    initial="hidden"
+                                                    animate="visible"
+                                                    whileHover="hover"
+                                                    whileTap={{ scale: 0.98 }}
+                                                    onClick={() => handleSuggestionClick(product.name)}
+                                                    className="suggestion-item w-full text-left px-4 py-3 text-white/70 hover:text-white flex items-center justify-between text-xs font-bold uppercase tracking-wider"
+                                                >
+                                                    <span className="truncate">{product.name}</span>
+                                                    <span className="text-white/20 text-[9px] ml-2 shrink-0">{product.category}</span>
+                                                </motion.button>
+                                            ))}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
+
+                            {/* CART */}
+                            <motion.div whileHover={buttonHover} whileTap={buttonTap}>
+                                <Link to="/cart" className="relative w-9 h-9 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/50 hover:text-white transition">
+                                    <ShoppingCart size={18} />
+                                    <AnimatePresence>
+                                        {totalItems > 0 && (
+                                            <motion.span
+                                                key={totalItems}
+                                                variants={cartSpring}
+                                                initial="initial"
+                                                animate="animate"
+                                                exit="exit"
+                                                className="absolute -top-1 -right-1 min-w-[16px] h-4 bg-white text-black text-[9px] font-bold flex items-center justify-center rounded-full px-1"
+                                            >
+                                                {totalItems > 99 ? '99+' : totalItems}
+                                            </motion.span>
+                                        )}
+                                    </AnimatePresence>
+                                </Link>
+                            </motion.div>
+
+                            {/* USER */}
+                            {user ? (
+                                <>
+                                    <motion.button
+                                        whileHover={buttonHover}
+                                        whileTap={buttonTap}
+                                        onClick={() => setMenuOpen(!menuOpen)}
+                                        className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-white/10 transition"
+                                    >
+                                        <motion.div
+                                            whileHover={{ scale: 1.08 }}
+                                            className="w-7 h-7 bg-white rounded-lg flex items-center justify-center"
+                                        >
+                                            <span className="text-black text-xs font-bold">{user.firstName?.charAt(0).toUpperCase()}</span>
+                                        </motion.div>
+                                        <motion.span
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ delay: 0.2 }}
+                                            className="text-xs font-bold text-white/70 uppercase tracking-wide hidden lg:block"
+                                        >
+                                            {user.firstName}
+                                        </motion.span>
+                                    </motion.button>
+
+                                    <motion.button
+                                        whileHover={buttonHover}
+                                        whileTap={buttonTap}
+                                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                        className="md:hidden w-9 h-9 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/50"
+                                    >
+                                        <AnimatePresence mode="wait">
+                                            {mobileMenuOpen ? (
+                                                <motion.div
+                                                    key="x"
+                                                    initial={{ rotate: -90, opacity: 0 }}
+                                                    animate={{ rotate: 0, opacity: 1 }}
+                                                    exit={{ rotate: 90, opacity: 0 }}
+                                                    transition={{ duration: 0.2 }}
+                                                >
+                                                    <X size={18} />
+                                                </motion.div>
+                                            ) : (
+                                                <motion.div
+                                                    key="menu"
+                                                    initial={{ rotate: 90, opacity: 0 }}
+                                                    animate={{ rotate: 0, opacity: 1 }}
+                                                    exit={{ rotate: -90, opacity: 0 }}
+                                                    transition={{ duration: 0.2 }}
+                                                >
+                                                    <Menu size={18} />
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </motion.button>
+                                </>
+                            ) : (
+                                <motion.div
+                                    className="flex items-center gap-2"
+                                    variants={fadeSlideUp}
+                                    initial="hidden"
+                                    animate="visible"
+                                >
+                                    <motion.div whileHover={{ y: -2, scale: 1.02 }} whileTap={{ scale: 0.95 }}>
+                                        <Link to="/login" className="hidden sm:block text-xs font-bold uppercase tracking-wider text-white/60 hover:text-white transition px-3 py-1.5 rounded-lg hover:bg-white/10">
+                                            SIGN IN
+                                        </Link>
+                                    </motion.div>
+                                    <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                                        <Link to="/register" className="bg-white text-black text-xs font-bold uppercase tracking-wider px-4 py-2 rounded-lg hover:bg-white/90 transition">
+                                            SIGN UP
+                                        </Link>
+                                    </motion.div>
+                                    <motion.button
+                                        whileHover={buttonHover}
+                                        whileTap={buttonTap}
+                                        onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                                        className="sm:hidden w-9 h-9 rounded-lg hover:bg-white/10 flex items-center justify-center text-white/50"
+                                    >
+                                        <Menu size={18} />
+                                    </motion.button>
+                                </motion.div>
+                            )}
+                        </motion.div>
+                    </div>
+
+                    {/* MOBILE SEARCH */}
+                    <motion.div
+                        initial={{ opacity: 0, y: -15, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
+                        transition={{ delay: 0.3, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        className="md:hidden pb-3"
+                        ref={searchRef}
+                    >
+                        <div className="flex items-center bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 gap-2">
+                            <Search size={14} className="text-white/40 shrink-0" />
+                            <input
+                                type="text"
+                                placeholder="SEARCH..."
+                                value={search}
+                                onChange={e => { setSearch(e.target.value); navigate('/'); }}
+                                className="flex-1 bg-transparent outline-none text-white/80 text-xs placeholder-white/30 font-bold uppercase tracking-wider"
+                            />
+                            {search && (
+                                <motion.button
+                                    whileTap={{ scale: 0.85, rotate: 90 }}
+                                    onClick={() => setSearch('')}
+                                    className="text-white/30"
+                                >
+                                    <X size={12} />
+                                </motion.button>
+                            )}
+                        </div>
+                        <AnimatePresence>
+                            {showSuggestions && (
+                                <motion.div
+                                    variants={suggestionVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                    exit="exit"
+                                    className="mt-1 bg-black border border-white/10 rounded-xl shadow-lg overflow-hidden"
+                                >
+                                    {suggestions.map((product, i) => (
+                                        <motion.button
+                                            key={product.id}
+                                            custom={i}
+                                            variants={suggestionItemVariants}
+                                            initial="hidden"
+                                            animate="visible"
+                                            whileTap={{ scale: 0.97 }}
+                                            onClick={() => handleSuggestionClick(product.name)}
+                                            className="w-full text-left px-4 py-3 text-white/70 hover:bg-white/5 hover:text-white flex justify-between text-xs font-bold uppercase tracking-wider"
+                                        >
+                                            <span className="truncate">{product.name}</span>
+                                            <span className="text-white/20 text-[9px] ml-2">{product.category}</span>
+                                        </motion.button>
+                                    ))}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
+                </div>
+            </motion.nav>
+
+            {/* DESKTOP DROPDOWN */}
+            <AnimatePresence>
+                {menuOpen && (
+                    <>
+                        <motion.div
+                            variants={backdropVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            onClick={() => setMenuOpen(false)}
+                            className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm"
+                        />
+                        <motion.div
+                            variants={menuAnimation}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            className="fixed top-[68px] right-5 sm:right-8 lg:right-12 z-50 w-64 bg-black border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                        >
+                            <motion.div
+                                initial={{ scaleX: 0 }}
+                                animate={{ scaleX: 1 }}
+                                transition={{ duration: 0.5, delay: 0.1 }}
+                                style={{ originX: 0 }}
+                                className="h-px w-full bg-white/10"
+                            />
+
+                            {user && (
+                                <motion.div
+                                    variants={fadeSlideUp}
+                                    initial="hidden"
+                                    animate="visible"
+                                    transition={{ delay: 0.1 }}
+                                    className="px-4 py-4 border-b border-white/10 bg-white/5"
+                                >
+                                    <p className="font-bold text-white text-sm uppercase tracking-wide">{user.firstName} {user.lastName}</p>
+                                    <p className="text-white/30 text-[10px] mt-0.5 truncate uppercase">{user.email}</p>
+                                    {user.role === 'ADMIN' && (
+                                        <motion.span
+                                            initial={{ opacity: 0, scale: 0.8 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            transition={{ delay: 0.2, type: "spring" }}
+                                            className="inline-block mt-2 text-[8px] font-bold uppercase bg-white text-black px-2 py-0.5 rounded"
+                                        >
+                                            ADMIN
+                                        </motion.span>
+                                    )}
+                                </motion.div>
+                            )}
+
+                            <div className="p-2">
+                                {[
+                                    { to: '/profile', icon: <User size={14} />, label: 'MY PROFILE' },
+                                    ...menuLinks
+                                ].map((link, i) => (
+                                    <motion.div
+                                        key={i}
+                                        custom={i}
+                                        variants={menuItemVariants}
+                                        initial="hidden"
+                                        animate="visible"
+                                    >
+                                        <motion.div whileHover="hover">
+                                            <Link
+                                                to={link.to}
+                                                onClick={() => setMenuOpen(false)}
+                                                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/60 hover:text-white transition text-[11px] font-bold uppercase tracking-wider group"
+                                            >
+                                                <motion.span whileHover={{ x: 3 }} className="text-white/30 group-hover:text-white/60 transition">
+                                                    {link.icon}
+                                                </motion.span>
+                                                {link.label}
+                                            </Link>
+                                        </motion.div>
+                                    </motion.div>
+                                ))}
+                            </div>
+
+                            <div className="border-t border-white/10 p-2">
+                                <motion.div
+                                    custom={menuLinks.length + 1}
+                                    variants={menuItemVariants}
+                                    initial="hidden"
+                                    animate="visible"
+                                >
+                                    <motion.button
+                                        whileHover={{ x: 4 }}
+                                        whileTap={{ scale: 0.96 }}
+                                        onClick={() => { setMenuOpen(false); handleLogout(); }}
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300 transition text-[11px] font-bold uppercase tracking-wider group"
+                                    >
+                                        <motion.span whileHover={{ x: 2 }}>
+                                            <LogOut size={14} />
+                                        </motion.span>
+                                        SIGN OUT
+                                    </motion.button>
+                                </motion.div>
+                            </div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+
+            {/* MOBILE DRAWER */}
+            <AnimatePresence>
+                {mobileMenuOpen && (
+                    <>
+                        <motion.div
+                            variants={backdropVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            onClick={() => setMobileMenuOpen(false)}
+                            className="fixed inset-0 z-40 bg-black/80 backdrop-blur-md md:hidden"
+                        />
+                        <motion.div
+                            variants={mobileDrawerVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                            className="fixed top-0 right-0 bottom-0 z-50 w-72 bg-black border-l border-white/10 shadow-2xl md:hidden flex flex-col"
+                        >
+                            <motion.div
+                                initial={{ opacity: 0, y: -15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.1, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                                className="flex items-center justify-between p-5 border-b border-white/10"
+                            >
+                                <div className="flex items-center gap-2">
+                                    <motion.div
+                                        whileHover={{ scale: 1.08 }}
+                                        className="w-7 h-7 bg-white rounded-lg flex items-center justify-center"
+                                    >
+                                        <span className="text-black font-black text-xs">E</span>
+                                    </motion.div>
+                                    <span className="logo-text text-white text-[10px] tracking-[0.2em]">E-TECH ZONE</span>
+                                </div>
+                                <motion.button
+                                    whileTap={{ scale: 0.85, rotate: 90 }}
+                                    onClick={() => setMobileMenuOpen(false)}
+                                    className="w-8 h-8 rounded-lg hover:bg-white/10 flex items-center justify-center"
+                                >
+                                    <X size={18} className="text-white/50" />
+                                </motion.button>
+                            </motion.div>
+
+                            {user && (
+                                <motion.div
+                                    initial={{ opacity: 0, x: 25 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ delay: 0.15, duration: 0.4 }}
+                                    className="px-5 py-4 border-b border-white/10 bg-white/5"
+                                >
+                                    <p className="font-bold text-white text-sm uppercase tracking-wide">{user.firstName} {user.lastName}</p>
+                                    <p className="text-white/30 text-[10px] mt-0.5 truncate uppercase">{user.email}</p>
+                                </motion.div>
+                            )}
+
+                            <div className="flex-1 overflow-y-auto p-4 space-y-1">
+                                <motion.p
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 1 }}
+                                    transition={{ delay: 0.2 }}
+                                    className="text-white/30 text-[8px] font-bold uppercase tracking-[0.2em] px-3 mb-3"
+                                >NAVIGATION</motion.p>
+
+                                {navLinks.map((link, i) => (
+                                    <motion.div
+                                        key={i}
+                                        custom={i}
+                                        variants={menuItemVariants}
+                                        initial="hidden"
+                                        animate="visible"
+                                    >
+                                        <Link
+                                            to={link.to}
+                                            onClick={() => setMobileMenuOpen(false)}
+                                            className="flex items-center px-3 py-3 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition text-[11px] font-bold uppercase tracking-wider"
+                                        >
+                                            {link.label}
+                                        </Link>
+                                    </motion.div>
+                                ))}
+
+                                {user && (
+                                    <>
+                                        <motion.div
+                                            initial={{ scaleX: 0 }}
+                                            animate={{ scaleX: 1 }}
+                                            transition={{ delay: 0.35, duration: 0.5 }}
+                                            style={{ originX: 0 }}
+                                            className="h-px bg-white/10 my-4"
+                                        />
+                                        <motion.p
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            transition={{ delay: 0.4 }}
+                                            className="text-white/30 text-[8px] font-bold uppercase tracking-[0.2em] px-3 mb-3"
+                                        >ACCOUNT</motion.p>
+
+                                        {[
+                                            { to: '/profile', icon: <User size={14} />, label: 'MY PROFILE' },
+                                            ...menuLinks
+                                        ].map((link, i) => (
+                                            <motion.div
+                                                key={i}
+                                                custom={i + 4}
+                                                variants={menuItemVariants}
+                                                initial="hidden"
+                                                animate="visible"
+                                            >
+                                                <Link
+                                                    to={link.to}
+                                                    onClick={() => setMobileMenuOpen(false)}
+                                                    className="flex items-center gap-3 px-3 py-3 rounded-xl text-white/60 hover:bg-white/10 hover:text-white transition text-[11px] font-bold uppercase tracking-wider"
+                                                >
+                                                    <span className="text-white/30">{link.icon}</span>
+                                                    {link.label}
+                                                </Link>
+                                            </motion.div>
+                                        ))}
+                                    </>
+                                )}
+                            </div>
+
+                            <motion.div
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.5, duration: 0.4 }}
+                                className="border-t border-white/10 p-4"
+                            >
+                                {user ? (
+                                    <motion.button
+                                        whileHover={{ x: 4 }}
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => { setMobileMenuOpen(false); handleLogout(); }}
+                                        className="w-full flex items-center justify-center gap-2 py-3 bg-white/5 hover:bg-white/10 rounded-xl text-white/60 hover:text-white font-bold text-[11px] uppercase tracking-wider transition"
+                                    >
+                                        <motion.span whileHover={{ x: 2 }}>
+                                            <LogOut size={14} />
+                                        </motion.span>
+                                        SIGN OUT
+                                    </motion.button>
+                                ) : (
+                                    <div className="flex gap-2">
+                                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }} className="flex-1">
+                                            <Link
+                                                to="/login"
+                                                onClick={() => setMobileMenuOpen(false)}
+                                                className="block py-3 border border-white/20 rounded-xl text-center text-white/60 hover:text-white font-bold text-[11px] uppercase tracking-wider hover:bg-white/5 transition"
+                                            >
+                                                SIGN IN
+                                            </Link>
+                                        </motion.div>
+                                        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.95 }} className="flex-1">
+                                            <Link
+                                                to="/register"
+                                                onClick={() => setMobileMenuOpen(false)}
+                                                className="block py-3 bg-white rounded-xl text-center text-black font-bold text-[11px] uppercase tracking-wider hover:bg-white/90 transition"
+                                            >
+                                                SIGN UP
+                                            </Link>
+                                        </motion.div>
+                                    </div>
+                                )}
+                            </motion.div>
+                        </motion.div>
+                    </>
+                )}
+            </AnimatePresence>
+        </>
+    );
+}
